@@ -1,0 +1,2 @@
+export class EventBus{constructor(){this.events=new Map()}on(type,fn){if(!this.events.has(type))this.events.set(type,new Set());this.events.get(type).add(fn);return()=>this.off(type,fn)}off(type,fn){this.events.get(type)?.delete(fn)}emit(type,payload){for(const fn of this.events.get(type)||[])try{fn(payload)}catch(e){console.error(`[EventBus:${type}]`,e)}}clear(){this.events.clear()}}
+export const bus=new EventBus();

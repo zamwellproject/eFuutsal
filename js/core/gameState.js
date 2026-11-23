@@ -1,0 +1,1 @@
+export const state={screen:'menu',match:null,paused:false,debug:false};export function setScreen(name){state.screen=name;document.querySelectorAll('.screen').forEach(s=>s.classList.toggle('active',s.id===`screen-${name}`))}

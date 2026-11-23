@@ -1,0 +1,1 @@
+export function installErrorHandlers(notify){window.addEventListener('error',e=>{console.error('[EFUTSAAL]',e.error||e.message);notify?.('Terjadi error. Buka console untuk detail.');});window.addEventListener('unhandledrejection',e=>{console.error('[EFUTSAAL promise]',e.reason);notify?.('Operasi gagal: '+(e.reason?.message||'unknown error'));});}

@@ -1,1 +1,2 @@
-
+import {CONFIG} from '../data/gameConfig.js';
+export class GameLoop{constructor(update,render){this.update=update;this.render=render;this.running=false;this.last=0;this.acc=0;this.raf=0;this.frame=this.frame.bind(this)}start(){if(this.running)return;this.running=true;this.last=performance.now();this.raf=requestAnimationFrame(this.frame)}stop(){this.running=false;cancelAnimationFrame(this.raf);this.acc=0}frame(now){if(!this.running)return;const dt=Math.min((now-this.last)/1000,CONFIG.physics.maxFrame);this.last=now;this.acc+=dt;while(this.acc>=CONFIG.physics.fixedStep){this.update(CONFIG.physics.fixedStep);this.acc-=CONFIG.physics.fixedStep}this.render(this.acc/CONFIG.physics.fixedStep);this.raf=requestAnimationFrame(this.frame)}}
