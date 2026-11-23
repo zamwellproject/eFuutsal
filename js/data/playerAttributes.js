@@ -1,0 +1,2 @@
+export const clampAttribute=n=>Math.max(1,Math.min(100,Number.isFinite(+n)?Math.round(+n):50));
+export function normalizePlayer(p){const a=p.attributes||{};return {id:String(p.id||crypto.randomUUID()),name:String(p.name||'Player').trim(),number:Math.max(0,Math.min(99,Math.round(+p.number||0))),position:p.position==='Goalkeeper'?'Goalkeeper':'Outfield',attributes:{speed:clampAttribute(a.speed),shooting:clampAttribute(a.shooting),passing:clampAttribute(a.passing),dribbling:clampAttribute(a.dribbling),defense:clampAttribute(a.defense),gkHandling:clampAttribute(a.gkHandling)}}}
