@@ -1,0 +1,1 @@
+import * as THREE from 'three';export function createBall(){const m=new THREE.Mesh(new THREE.SphereGeometry(.22,16,12),new THREE.MeshStandardMaterial({color:0xf4f4e9,roughness:.45}));m.castShadow=true;return m}

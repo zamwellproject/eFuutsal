@@ -1,1 +1,1 @@
-
+import * as THREE from 'three';export class CourtCamera{constructor(camera){this.camera=camera;this.mode='broadcast';this.target=new THREE.Vector3(0,0,0)}update(ball,controlled){const focus=this.mode==='follow'?ball.position:this.mode==='wide'?new THREE.Vector3(0,0,0):controlled.position;this.target.lerp(new THREE.Vector3(focus.x,0,focus.z),.045);const wide=this.mode==='wide';const desired=new THREE.Vector3(this.target.x,wide?39:31,this.target.z+(wide?5:13));this.camera.position.lerp(desired,.04);this.camera.lookAt(this.target.x,0,this.target.z)}setMode(m){this.mode=m}}
