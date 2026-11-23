@@ -1,0 +1,1 @@
+export const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));export const len=(x,z)=>Math.hypot(x,z);export function norm(x,z){const l=Math.hypot(x,z)||1;return {x:x/l,z:z/l}}export const dist2=(a,b)=>Math.hypot(a.x-b.x,a.z-b.z);
