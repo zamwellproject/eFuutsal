@@ -1,0 +1,10 @@
+{
+  "name": "efutsaal-3d",
+  "version": "0.25.0",
+  "private": true,
+  "type": "module",
+  "description": "Browser-based 5v5 futsal game built with Three.js and ES modules",
+  "scripts": {
+    "test": "node tests/gameplay.test.js"
+  }
+}
