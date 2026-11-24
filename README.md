@@ -203,3 +203,15 @@ Build 0.18.0 memperketat rekonsiliasi input guest: antrean prediksi tidak membua
 - Guest replicas accept authoritative state snapshots only when `tick` is a non-negative safe integer strictly greater than the last accepted tick. Duplicate, stale and malformed snapshot ticks are rejected before the snapshot callback runs.
 - Automated tests cover role-direction enforcement, handshake replay, monotonic snapshot ticks, and malformed/negative ticks.
 - Actual PeerJS two-device, NAT/TURN, browser and device testing remains outstanding.
+
+### Build 0.26.0 — reconnect handshake integration (Tahap 7)
+- A transport reconnect now invalidates the active protocol session on both sides and restarts the hello/helloAck handshake.
+- Clears old snapshot interpolation, guest prediction/reconciliation queue, input acknowledgement and remote input/action latches when a peer transport reports connected.
+- NetworkSync reset clears sequence/tick gates and heartbeat/session diagnostics; fresh guest inputs remain blocked until the new handshake is ready.
+- PeerManager event subscriptions now support multiple listeners, preventing status observers from silently overwriting each other.
+- Automated tests cover a completed session reset, fresh hello, input gating before readiness, and handshake completion after reset.
+- Real two-device reconnect and stale events across actual PeerJS transport changes remain NOT TESTED.
+
+
+## Build 0.27.0 — Final multiplayer lifecycle integration checkpoint
+This checkpoint prevents stale `NetworkSync` listeners from surviving room changes, resets local/remote READY state at room lifecycle boundaries, and clears session gameplay/network buffers on disconnect/reconnect. It remains an integration checkpoint; two-device acceptance, real-network reconnect, NAT/TURN and browser/device QA have not been performed.

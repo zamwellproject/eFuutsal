@@ -1,4 +1,4 @@
-# QA / Verification Status — Build 0.25.0
+# QA / Verification Status — Build 0.26.0
 
 ## Completed in this continuation
 - [x] Reworked role-based AI positioning for Anchor, Pivot, Flanks and Goalkeeper.
@@ -257,3 +257,32 @@ The bot match now has a stronger playable simulation foundation, but it is not y
 - [x] Automated tests cover role direction, handshake replay, duplicate/stale snapshot ticks and malformed tick values.
 - [x] `npm test` passes across the accumulated gameplay and multiplayer regression suite.
 - [ ] Actual PeerJS two-device, NAT/TURN, reconnect under real network loss, browser/WebGL and physical-device acceptance tests remain NOT TESTED.
+
+## Build 0.26.0 — Reconnect handshake integration (Tahap 7)
+- [x] Transport reconnect event resets the active NetworkSync handshake state.
+- [x] Old snapshot buffer, prediction queue, acknowledgement and guest action latches are cleared on reconnect.
+- [x] New guest input remains blocked until the reconnect handshake completes.
+- [x] Session sequence and snapshot tick gates are reset for the fresh protocol session.
+- [x] PeerManager status listeners can coexist; status watcher no longer overwrites main lifecycle handling.
+- [x] Automated tests cover session reset, new hello, pre-handshake input blocking and handshake recovery.
+- [x] `npm test` and JavaScript syntax checks pass.
+- [ ] Real PeerJS two-device reconnect, event timing, NAT/TURN, network loss and physical-device QA remain NOT TESTED.
+
+
+## Build 0.27.0 — Final multiplayer lifecycle integration checkpoint
+
+- [x] NetworkSync now exposes idempotent `dispose()` and detaches its message listener; disposed instances reject direct receive calls.
+- [x] Room lifecycle resets local and remote READY flags on create/join/leave and on transport disconnect/reconnect.
+- [x] Main room entry points dispose old sync listeners before creating or joining another room, preventing stale protocol instances from processing current-room packets.
+- [x] Disconnect clears snapshot buffer, render tick, reconciliation history, guest input acknowledgement/sequence, remote input and action latches.
+- [x] Reconnect transport triggers a fresh handshake reset; gameplay input remains blocked by `sessionReady` until the handshake succeeds.
+- [x] Added automated tests for NetworkSync disposal, idempotency, stale-message rejection and READY-state reset.
+- [x] `npm test` passes; JavaScript syntax checks and local module resolution checks pass.
+- [ ] Two-device host/guest acceptance tests, repeated reconnects on real networks, TURN/NAT behavior, packet loss and browser/device QA remain outstanding.
+
+## Build 0.27.0 — Verification report
+- Automated regression suite: PASS.
+- JavaScript syntax checks: PASS.
+- Local import resolution: PASS.
+- ZIP integrity: PASS (verified after packaging).
+- Multiplayer real-device acceptance: NOT RUN.
