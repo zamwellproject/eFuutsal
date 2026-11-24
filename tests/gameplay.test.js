@@ -261,7 +261,49 @@ assert.equal(wrongRoleSync.receive({ type: 'hello', seq: 1, payload: { protocol:
 assert.equal(wrongRoleSync.receive({ type: 'hello', seq: 2, payload: { protocol: 1, role: 'host' } }), false, 'same-role peer is rejected');
 assert.equal(wrongRoleSync.receive({ type: 'input', seq: 1, payload: { x: 0, z: 0 } }), false, 'gameplay input is rejected before handshake');
 assert.equal(wrongRoleSync.getDiagnostics().sessionReady, false, 'invalid handshake cannot activate a session');
+// Reconnect session reset must clear prior readiness, replay/tick gates and diagnostics, then restart hello.
+const resetPackets = [];
+const resetPeer = { role: 'guest', on() {}, send: (type, payload) => { resetPackets.push({ type, payload }); return resetPackets.length; } };
+const resetSync = new NetworkSync(resetPeer);
+assert.equal(resetSync.receive({ type: 'hello', seq: 1, payload: { protocol: 1, role: 'host' } }), true);
+assert.equal(resetSync.receive({ type: 'helloAck', seq: 2, payload: { protocol: 1, role: 'host' } }), true);
+assert.equal(resetSync.sessionReady, true);
+resetSync.lastStateTick = 50;
+assert.equal(resetSync.resetSession(), true, 'reset starts hello for a new transport session');
+assert.equal(resetSync.sessionReady, false, 'old readiness is invalidated on reconnect');
+assert.equal(resetSync.lastSeq, -1, 'sequence acceptance restarts for the new protocol session');
+assert.equal(resetSync.lastStateTick, -1, 'snapshot tick gate is cleared for new session');
+assert.equal(resetPackets.at(-1).type, 'hello', 'reconnect sends a fresh hello');
+assert.equal(resetSync.sendInput({ x: 1, z: 0 }), false, 'guest input is blocked until new handshake');
+assert.equal(resetSync.receive({ type: 'hello', seq: 3, payload: { protocol: 1, role: 'host' } }), true);
+assert.equal(resetSync.receive({ type: 'helloAck', seq: 4, payload: { protocol: 1, role: 'host' } }), true);
+assert.equal(resetSync.sessionReady, true, 'new handshake can restore readiness');
 console.log('Network protocol validation, handshake, heartbeat and diagnostics tests passed.');
+
+// NetworkSync disposal removes old listeners so room changes cannot leak protocol handlers.
+class SyncEventPeer {
+  constructor() { this.handlers = new Map(); this.sent = []; }
+  on(type, fn) { const set = this.handlers.get(type) || new Set(); set.add(fn); this.handlers.set(type, set); return () => set.delete(fn); }
+  off(type, fn) { this.handlers.get(type)?.delete(fn); }
+  send(type, payload) { this.sent.push({ type, payload }); return this.sent.length; }
+  emit(type, data) { for (const fn of [...(this.handlers.get(type) || [])]) fn(data); }
+}
+const disposalPeer = new SyncEventPeer();
+const disposalSync = new NetworkSync(disposalPeer, { role: 'guest' });
+assert.equal(disposalPeer.handlers.get('message').size, 1, 'sync instance attaches one message listener');
+assert.equal(disposalSync.dispose(), true, 'dispose detaches active listener');
+assert.equal(disposalPeer.handlers.get('message').size, 0, 'disposed sync does not remain subscribed');
+assert.equal(disposalSync.dispose(), false, 'dispose is idempotent');
+assert.equal(disposalSync.receive({ type: 'hello', seq: 1, payload: { protocol: 1, role: 'host' } }), false, 'disposed sync rejects direct stale message handling');
+
+import { RoomManager } from '../js/network/roomManager.js';
+const roomPeer = { send: () => 1, close() {} };
+const roomLifecycle = new RoomManager(roomPeer);
+roomLifecycle.ready = true; roomLifecycle.remoteReady = true;
+roomLifecycle.resetReadyState();
+assert.equal(roomLifecycle.ready, false, 'session reset clears local ready state');
+assert.equal(roomLifecycle.remoteReady, false, 'session reset clears remote ready state');
+console.log('NetworkSync disposal and room readiness lifecycle tests passed.');
 
 // Host/guest permissions and buffered interpolation for authoritative snapshots.
 import { SnapshotBuffer } from '../js/network/snapshotBuffer.js';
@@ -409,6 +451,13 @@ class FakeConnection {
   close() { this.open = false; this.emit('close'); }
   send(value) { this.sent.push(value); }
 }
+const multiListenerPeer = new PeerManager();
+let firstStatusListener = 0, secondStatusListener = 0;
+multiListenerPeer.on('status', () => firstStatusListener++);
+multiListenerPeer.on('status', () => secondStatusListener++);
+multiListenerPeer.emit('status', 'test');
+assert.equal(firstStatusListener, 1, 'status event supports multiple subscribers');
+assert.equal(secondStatusListener, 1, 'later status subscriber does not replace earlier subscriber');
 const lifecyclePeer = new PeerManager();
 const lifecycleStatuses = [], lifecycleMessages = [];
 lifecyclePeer.on('status', value => lifecycleStatuses.push(value));
