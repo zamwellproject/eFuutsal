@@ -8,14 +8,33 @@ export class PeerManager {
   off(type, fn) { this.handlers[type]?.delete(fn); }
   emit(type, data) { for (const fn of [...(this.handlers[type] || [])]) fn(data); }
   async loadPeerConstructor(timeoutMs = 12000) {
-    let timer;
-    try {
-      const module = await Promise.race([
-        import('https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.esm.js'),
-        new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Timeout memuat library PeerJS dari CDN. Periksa koneksi atau pemblokir konten.')), timeoutMs); })
-      ]);
-      return module.Peer;
-    } finally { clearTimeout(timer); }
+    if (typeof window !== 'undefined' && window.Peer) return window.Peer;
+    const sources = [
+      'https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.min.js',
+      'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js'
+    ];
+    const loadScript = (src) => new Promise((resolve, reject) => {
+      const script = document.createElement('script');
+      let settled = false;
+      const timer = setTimeout(() => finish(new Error(`Timeout memuat ${src}`)), timeoutMs);
+      const finish = error => {
+        if (settled) return; settled = true; clearTimeout(timer);
+        script.onload = script.onerror = null;
+        if (error) { script.remove(); reject(error); }
+        else if (window.Peer) resolve(window.Peer);
+        else { script.remove(); reject(new Error('Library termuat tetapi objek PeerJS tidak ditemukan.')); }
+      };
+      script.src = src; script.async = true;
+      script.onload = () => finish();
+      script.onerror = () => finish(new Error(`CDN tidak dapat memuat PeerJS: ${src}`));
+      document.head.appendChild(script);
+    });
+    const errors = [];
+    for (const src of sources) {
+      try { return await loadScript(src); }
+      catch (error) { errors.push(error.message); }
+    }
+    throw new Error(`PeerJS gagal dimuat dari seluruh CDN. Periksa koneksi, DNS, atau content blocker. ${errors.join(' | ')}`);
   }
   async create({ timeoutMs = 15000 } = {}) {
     this.close();
