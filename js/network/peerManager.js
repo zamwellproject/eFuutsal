@@ -4,8 +4,9 @@ export class PeerManager {
     this.remoteReady = false; this._seq = 0; this.remoteId = null;
     this.reconnectPromise = null; this._lifecycleId = 0;
   }
-  on(type, fn) { this.handlers[type] = fn; }
-  emit(type, data) { this.handlers[type]?.(data); }
+  on(type, fn) { if (!this.handlers[type]) this.handlers[type] = new Set(); this.handlers[type].add(fn); return () => this.off(type, fn); }
+  off(type, fn) { this.handlers[type]?.delete(fn); }
+  emit(type, data) { for (const fn of [...(this.handlers[type] || [])]) fn(data); }
   async create() {
     this._lifecycleId++;
     const { Peer } = await import('https://cdn.jsdelivr.net/npm/peerjs@1.5.4/dist/peerjs.esm.js');

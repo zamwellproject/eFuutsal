@@ -57,9 +57,43 @@ export class NetworkSync {
     this.roundTripMs = null;
     this.lastPongAt = 0;
     this.lastPingAt = 0;
-    peer.on('message', message => this.receive(message));
+    this._messageHandler = message => this.receive(message);
+    this._unsubscribeMessage = peer.on('message', this._messageHandler);
+    this._disposed = false;
     this._sendHello();
   }
+
+  /** Detaches this sync instance from the peer event stream. */
+  dispose() {
+    if (this._disposed) return false;
+    this._disposed = true;
+    if (typeof this._unsubscribeMessage === 'function') this._unsubscribeMessage();
+    else this.peer.off?.('message', this._messageHandler);
+    this.sessionReady = false;
+    this.onSessionReady?.(false);
+    return true;
+  }
+
+  /** Starts a fresh protocol session after a transport reconnect. Old session counters and acknowledgements are discarded. */
+  resetSession() {
+    if (this._disposed) return false;
+    this.remoteHello = false;
+    this.localHelloAck = false;
+    this.sessionReady = false;
+    this.helloSent = false;
+    this.lastSeq = -1;
+    this.lastStateTick = -1;
+    this.receivedPackets = 0;
+    this.sequenceGaps = 0;
+    this.rejectedPackets = 0;
+    this.lastMessageAt = 0;
+    this.roundTripMs = null;
+    this.lastPongAt = 0;
+    this.lastPingAt = 0;
+    this.onSessionReady?.(false);
+    return this._sendHello();
+  }
+
 
   _sendHello() {
     if (this.helloSent || !this.role) return false;
@@ -77,6 +111,7 @@ export class NetworkSync {
   }
 
   receive(message) {
+    if (this._disposed) return false;
     if (!message || typeof message !== 'object' || !Number.isSafeInteger(message.seq) || message.seq < 0 || message.seq <= this.lastSeq) { this.rejectedPackets++; return false; }
     if (!['hello', 'helloAck', 'input', 'state', 'ready', 'ping', 'pong'].includes(message.type)) { this.rejectedPackets++; return false; }
     const payload = message.payload;
