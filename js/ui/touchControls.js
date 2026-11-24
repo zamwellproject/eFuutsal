@@ -9,6 +9,7 @@ export class TouchControls {
     this.knob = this.joy?.querySelector('.joy-knob');
     this.axis = { x: 0, z: 0 };
     this.activePointers = new Map();
+    this.lastSprintTap = 0;
     if (!this.enabled || !this.joy) return;
     let joystickPointer = null;
     const move = e => {
@@ -48,6 +49,11 @@ export class TouchControls {
         if (this.activePointers.has(e.pointerId)) return;
         this.activePointers.set(e.pointerId, action);
         try { button.setPointerCapture(e.pointerId); } catch {}
+        if (action === 'sprint') {
+          const now = performance.now();
+          if (now - this.lastSprintTap < 320) this.onInput({ type: 'dash', down: true });
+          this.lastSprintTap = now;
+        }
         this.onInput({ type: action, down: true });
       });
       button.addEventListener('pointerup', release);
