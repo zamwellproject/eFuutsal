@@ -4,10 +4,13 @@ const LEVEL = { Easy: { speed: .82, think: 1.35, press: .55, risk: .24 }, Normal
 function closest(players, point) { return players.filter(p => !p.gk).reduce((best, p) => !best || dist2(p, point) < dist2(best, point) ? p : best, null); }
 function steer(p, target, dt, speedScale = 1) {
   const dx = target.x - p.x, dz = target.z - p.z, d = Math.hypot(dx, dz);
-  const speed = clamp((p.stats?.speed ?? 70) / 100, .4, 1) * 4.35 * speedScale;
-  const desiredX = d > .18 ? dx / d * Math.min(speed, d * 3.2) : 0;
-  const desiredZ = d > .18 ? dz / d * Math.min(speed, d * 3.2) : 0;
-  const blend = Math.min(1, dt * 7);
+  const speed = clamp((p.stats?.speed ?? 70) / 100, .4, 1) * 3.65 * speedScale;
+  // A wider arrival dead-zone prevents AI teammates from constantly correcting
+  // tiny position differences and visibly shuffling around their formation slot.
+  const arrived = d < .58;
+  const desiredX = !arrived && d > .18 ? dx / d * Math.min(speed, d * 2.35) : 0;
+  const desiredZ = !arrived && d > .18 ? dz / d * Math.min(speed, d * 2.35) : 0;
+  const blend = Math.min(1, dt * (arrived ? 10 : 5.2));
   p.vx = (p.vx || 0) + (desiredX - (p.vx || 0)) * blend;
   p.vz = (p.vz || 0) + (desiredZ - (p.vz || 0)) * blend;
   p.x = clamp(p.x + p.vx * dt, -9, 9); p.z = clamp(p.z + p.vz * dt, -17, 17);
@@ -50,8 +53,8 @@ export function updateAI(team, opponents, ball, dt, difficulty = 'Normal', defen
     if (p.human || p === context.remotePlayer) continue;
     if (p.gk) {
       const goalZ = defendSign * 16.15;
-      const target = { x: clamp(ball.x * .32, -1.35, 1.35), z: goalZ };
-      steer(p, target, dt, cfg.speed * 1.02);
+      const target = { x: clamp(ball.x * .2, -1.15, 1.15), z: goalZ };
+      steer(p, target, dt, cfg.speed * .82);
       p.x = clamp(p.x, -2.0, 2.0);
       if (p.saveCooldown > 0) p.saveCooldown = Math.max(0, p.saveCooldown - dt);
       const handling = clamp((p.stats?.gkHandling ?? 65) / 100, .35, 1);
@@ -80,26 +83,45 @@ export function updateAI(team, opponents, ball, dt, difficulty = 'Normal', defen
     }
     const base = formationTarget(p.slot, defendSign);
     const forward = -defendSign;
-    let target = { x: base.x + clamp(ball.x * .16, -2.2, 2.2), z: base.z + clamp((ball.z - base.z) * .18, -3.0, 3.0) };
+    const ballDistance = dist2(p, ball);
+    // Teammates away from the play should preserve their tactical shape. Ball
+    // influence fades in only nearby, instead of pulling the whole team around.
+    const shapeInfluence = clamp((10.5 - ballDistance) / 10.5, 0, 1);
+    let target = {
+      x: base.x + clamp(ball.x * .055, -0.72, 0.72) * shapeInfluence,
+      z: base.z + clamp((ball.z - base.z) * .045, -0.9, 0.9) * shapeInfluence
+    };
+    let movementScale = .66;
     if (opponentHasBall && p === chaser) {
       target = { x: ball.x - ball.vx * .12, z: ball.z - ball.vz * .12 };
+      movementScale = cfg.press;
       const challengeDistance = carrier ? dist2(p, carrier) : 99;
-      if (carrier && challengeDistance < 1.18 && (p.tackleCooldown || 0) <= 0) {
-        p.tackleCooldown = cfg.think * 0.9;
-        context.onTackle?.(p, carrier);
+      if (carrier && challengeDistance < 1.02 && (p.tackleCooldown || 0) <= 0) {
+        // AI only commits when close enough and approaching the ball carrier;
+        // a longer recovery window prevents repeated foul attempts.
+        const closing = (p.vx || 0) * (carrier.x - p.x) + (p.vz || 0) * (carrier.z - p.z);
+        if (closing > -0.15 && Math.random() < (cfg.press > 1.1 ? 0.42 : 0.28)) {
+          p.tackleCooldown = 2.6 + cfg.think * 0.7;
+          context.onTackle?.(p, carrier);
+        } else p.tackleCooldown = 0.55;
       }
     } else if (teamHasBall) {
-      if (p.slot === 1) target = { x: clamp(ball.x * .55, -5.2, 5.2), z: ball.z + forward * 3.2 };
-      if (p.slot === 2 || p.slot === 3) target = { x: base.x * .9 + ball.x * .1, z: base.z + forward * 1.8 };
-      if (p.slot === 0) target = { x: clamp(ball.x * .35, -3.2, 3.2), z: base.z + forward * 1.0 };
+      // Make restrained support runs only when reasonably close to the attack.
+      // This keeps off-ball teammates available without making them swarm the carrier.
+      const support = clamp((11.5 - ballDistance) / 11.5, 0, 1);
+      if (p.slot === 1) target = { x: base.x + (ball.x - base.x) * .12, z: base.z + forward * (1.15 * support) };
+      if (p.slot === 2 || p.slot === 3) target = { x: base.x + (ball.x - base.x) * .08, z: base.z + forward * (.72 * support) };
+      if (p.slot === 0) target = { x: base.x + (ball.x - base.x) * .06, z: base.z + forward * (.38 * support) };
+      movementScale = .58;
     } else if (!opponentHasBall && p === chaser) {
       target = { x: ball.x - ball.vx * .18, z: ball.z - ball.vz * .18 };
+      movementScale = cfg.press;
     }
-    steer(p, target, dt, cfg.speed * (p === chaser && !teamHasBall ? cfg.press : 1));
+    steer(p, target, dt, cfg.speed * movementScale);
     // Separation: keep teammates from occupying the same tactical point.
     for (const mate of team) if (mate !== p && !mate.gk) {
       const dx = p.x - mate.x, dz = p.z - mate.z, d = Math.hypot(dx, dz);
-      if (d > .001 && d < .82) { p.x += dx / d * .35 * dt * 8; p.z += dz / d * .35 * dt * 8; }
+      if (d > .001 && d < .58) { p.x += dx / d * .12 * dt * 5; p.z += dz / d * .12 * dt * 5; }
     }
     if (p.aiCooldown > 0) p.aiCooldown = Math.max(0, p.aiCooldown - dt);
     if (p.tackleCooldown > 0) p.tackleCooldown = Math.max(0, p.tackleCooldown - dt);
