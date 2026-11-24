@@ -7,3 +7,6 @@ body.touch-device .touch-controls{display:flex!important}
 body.touch-device #game-root{min-height:420px;height:calc(100dvh - 112px)}
 body.touch-device .action-buttons button,body.touch-device .joystick{touch-action:none;-webkit-user-select:none;user-select:none}
 @media(pointer:coarse){.touch-controls{display:flex!important}}
+
+/* Prevent iOS/iPadOS double-tap zoom inside the active match surface. */
+#game-root{touch-action:manipulation;overscroll-behavior:contain}
