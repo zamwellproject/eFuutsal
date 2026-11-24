@@ -1,4 +1,4 @@
-# QA / Verification Status — Build 0.26.0
+# QA / Verification Status — Build 0.28.0
 
 ## Completed in this continuation
 - [x] Reworked role-based AI positioning for Anchor, Pivot, Flanks and Goalkeeper.
@@ -286,3 +286,32 @@ The bot match now has a stronger playable simulation foundation, but it is not y
 - Local import resolution: PASS.
 - ZIP integrity: PASS (verified after packaging).
 - Multiplayer real-device acceptance: NOT RUN.
+
+
+## Build 0.28.0 — Critical gameplay, camera and P2P recovery
+
+- [x] GameLoop isolates simulation/render exceptions, reports the failing phase once per distinct error, and schedules the next animation frame in a `finally` path so one runtime exception cannot silently terminate the loop.
+- [x] Added GameLoop diagnostics for running state, rendered frame count, simulation ticks and last runtime error.
+- [x] Fixed touch-control visibility for coarse-pointer and touch-first tablets whose CSS viewport is wider than 720px (including common iPad layouts).
+- [x] Touch action buttons use pointer capture and reset held states on pointer cancellation, focus loss and document backgrounding.
+- [x] Added a one-frame action pulse queue so quick touch taps are not lost between animation frames; pass/through/shoot/tackle/switch can be consumed by the simulation even when pointerdown and pointerup occur between two frames.
+- [x] Power meter is suppressed during set-piece setup and only appears during an actual shot charge.
+- [x] Camera controller validates modes, guards missing targets, resets interpolation on mode changes, and differentiates broadcast/follow/wide framing.
+- [x] Added an in-match camera selector so camera changes can be tested without leaving the match.
+- [x] Added explicit renderer/camera resize after the game screen becomes visible and exposed arena resize/dispose lifecycle.
+- [x] Added a compact in-match runtime monitor showing loop state, approximate FPS, simulation tick count, restart/play state and active camera mode.
+- [x] PeerJS dynamic import and signaling-open waits now have bounded timeouts; create/join errors are surfaced with specific status text and failed room creation cleans up the Peer instance.
+- [x] RoomManager forwards timeout configuration to PeerManager.
+- [x] Create Room UI displays its progress area immediately, disables duplicate clicks during creation, and reports specific failures.
+- [x] Added regression tests for GameLoop recovery, room timeout propagation, PeerJS room creation success, signaling timeout and cleanup.
+- [x] `npm test` passes.
+- [x] All JavaScript files under `js/` and `tests/` pass `node --check`.
+- [ ] Actual iPad Chrome WebGL/FPS/touch/camera testing remains NOT TESTED in this environment.
+- [ ] Actual PeerJS two-device host/guest, signaling reachability, NAT/TURN and reconnect acceptance remains NOT TESTED.
+
+## Known limitations after Build 0.28.0
+
+- The match clock intentionally remains paused during the five-second restart setup and starts after a valid PASS/SHOOT restart action. The new iPad touch visibility and pulse queue target the reported inability to send that action reliably.
+- PeerJS still depends on its public CDN and public signaling service; timeout diagnostics do not guarantee that the service is reachable from every network.
+- TURN server credentials/configuration are not included; restrictive NAT/firewall paths may still require a configured TURN provider.
+- Automated tests cannot certify visual WebGL output, camera framing quality, device thermals, or real-network multiplayer behavior.

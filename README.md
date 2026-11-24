@@ -2,6 +2,10 @@
 
 Browser-based 5v5 futsal project built with vanilla ES modules and Three.js r160. Designed for static hosting (including GitHub Pages).
 
+## Current build
+
+Build 0.28.0 focuses on runtime-loop recovery, reliable touch input on iPad/tablets, in-match camera selection, and bounded PeerJS room creation/join signaling waits. Automated tests cover loop recovery and PeerJS create timeout/cleanup; physical iPad Chrome and two-device network acceptance remain unverified.
+
 ## Run locally
 
 ES modules require HTTP(S), not `file://`. From this directory run `python3 -m http.server 8000`, then open `http://localhost:8000`.
@@ -28,7 +32,7 @@ Procedural low-poly players, court, goals and ball are generated in Three.js. Pu
 
 ## Controls
 
-Desktop: WASD/arrows move, J/Z/Space pass, K/X through pass, hold L/Enter to charge shot, Shift sprint, C curve, F/V tackle, Q/E switch player. Mobile: left joystick and on-screen action buttons including TACKLE.
+Desktop: WASD/arrows move, J/Z/Space pass, K/X through pass, hold L/Enter to charge shot, Shift sprint, C curve, F/V tackle, Q/E switch player. Touch devices (including wide-screen iPads): left joystick and on-screen action buttons including TACKLE. Short action taps are queued until the next simulation update; shot is charged while held. Camera mode can also be changed in-match using the CAMERA selector.
 
 ## Current implementation scope
 
