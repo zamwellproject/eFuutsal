@@ -1,10 +1,15 @@
+## Build 0.30.0
+
+- Menambahkan lingkaran seleksi berwarna lime di permukaan lapangan tepat di bawah pemain yang sedang dikendalikan. Indikator berpindah otomatis saat pemain dikontrol berganti dan mengikuti pemain remote pada sisi guest multiplayer.
+- Lingkaran dirender terpisah dari model pemain agar tetap terlihat dari kamera pertandingan.
+
 # EFUTSAAL 3D
 
 Browser-based 5v5 futsal project built with vanilla ES modules and Three.js r160. Designed for static hosting (including GitHub Pages).
 
 ## Current build
 
-Build 0.28.0 focuses on runtime-loop recovery, reliable touch input on iPad/tablets, in-match camera selection, and bounded PeerJS room creation/join signaling waits. Automated tests cover loop recovery and PeerJS create timeout/cleanup; physical iPad Chrome and two-device network acceptance remain unverified.
+Build 0.29.0 adds defensive AI tuning, an on-court passing direction guide, iPad sprint double-tap boost, double-tap zoom suppression, and a PeerJS CDN loader with fallback. Automated tests cover loop recovery and PeerJS create timeout/cleanup; physical iPad Chrome and two-device network acceptance remain unverified.
 
 ## Run locally
 
@@ -219,3 +224,14 @@ Build 0.18.0 memperketat rekonsiliasi input guest: antrean prediksi tidak membua
 
 ## Build 0.27.0 — Final multiplayer lifecycle integration checkpoint
 This checkpoint prevents stale `NetworkSync` listeners from surviving room changes, resets local/remote READY state at room lifecycle boundaries, and clears session gameplay/network buffers on disconnect/reconnect. It remains an integration checkpoint; two-device acceptance, real-network reconnect, NAT/TURN and browser/device QA have not been performed.
+
+
+## Build 0.29.0
+- AI defensive challenge cooldown and probability tuning to reduce repeated tackle/foul loops.
+- iPad touch sprint double-tap gives a short sprint boost.
+- Dashed on-court pass/aim direction guide follows joystick direction or player facing.
+- Match surface suppresses iOS double-tap zoom.
+- PeerJS loading now uses UMD script loading with jsDelivr and unpkg fallback instead of a fragile remote ES module import.
+
+### Build 0.31.0 — Off-ball AI
+AI teammates now preserve their formation more consistently, make shorter support movements near the ball, and decelerate instead of continuously correcting small position changes. The nearest eligible player remains responsible for pressing a loose/opponent-controlled ball.

@@ -1,4 +1,10 @@
-# QA / Verification Status — Build 0.28.0
+## Build 0.30.0 — Player Selection Indicator
+
+- Added a lime selection ring under the currently controlled player.
+- Ring follows the controlled player position every render frame, hides when no controlled player is available, and uses the guest remote-controlled player in guest mode.
+- Automated checks: pending execution for this build. Real-device and two-device multiplayer visual verification: pending.
+
+# QA / Verification Status — Build 0.29.0
 
 ## Completed in this continuation
 - [x] Reworked role-based AI positioning for Anchor, Pivot, Flanks and Goalkeeper.
@@ -315,3 +321,18 @@ The bot match now has a stronger playable simulation foundation, but it is not y
 - PeerJS still depends on its public CDN and public signaling service; timeout diagnostics do not guarantee that the service is reachable from every network.
 - TURN server credentials/configuration are not included; restrictive NAT/firewall paths may still require a configured TURN provider.
 - Automated tests cannot certify visual WebGL output, camera framing quality, device thermals, or real-network multiplayer behavior.
+
+
+## Build 0.29.0 — fixes in progress
+- [x] Replace remote PeerJS module import with CDN script loader and fallback.
+- [x] Reduce AI tackle frequency and add recovery cooldown.
+- [x] Add dashed pass/aim direction guide.
+- [x] Add sprint double-tap boost and iOS double-tap zoom suppression.
+- [ ] Verify PeerJS CDN availability on the user's iPad/network.
+- [ ] Two-device P2P acceptance test remains required.
+
+## Build 0.31.0 — restrained off-ball AI
+- Reduced off-ball formation drift and support-run distance so teammates hold their tactical slots unless the play is nearby.
+- Added a wider arrival dead-zone, smoother deceleration, lower support movement speed, and less goalkeeper lateral tracking.
+- Added automated tests for formation holding and restrained support movement around a human carrier.
+- Physical iPad/browser gameplay validation remains pending.
