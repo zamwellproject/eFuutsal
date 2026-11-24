@@ -3,6 +3,8 @@ import { MatchManager } from '../js/gameplay/matchManager.js';
 import { stepBall, kick } from '../js/gameplay/ballPhysics.js';
 import { registerFoul, resetHalfFouls } from '../js/gameplay/futsalRules.js';
 import { SetPiece } from '../js/gameplay/setPieces.js';
+import { GameLoop } from '../js/core/gameLoop.js';
+import { RoomManager } from '../js/network/roomManager.js';
 const makeTeam = (team, sign, human = false) => Array.from({ length: 5 }, (_, i) => ({
   id: `${team}-${i}`, name: `${team}${i}`, number: i + 1, slot: i, gk: i === 4,
   human: human && i === 1, x: [0, 0, 5, -5, 0][i], z: [5, -7, -2, -2, 15][i] * sign,
@@ -296,7 +298,6 @@ assert.equal(disposalPeer.handlers.get('message').size, 0, 'disposed sync does n
 assert.equal(disposalSync.dispose(), false, 'dispose is idempotent');
 assert.equal(disposalSync.receive({ type: 'hello', seq: 1, payload: { protocol: 1, role: 'host' } }), false, 'disposed sync rejects direct stale message handling');
 
-import { RoomManager } from '../js/network/roomManager.js';
 const roomPeer = { send: () => 1, close() {} };
 const roomLifecycle = new RoomManager(roomPeer);
 roomLifecycle.ready = true; roomLifecycle.remoteReady = true;
@@ -510,3 +511,77 @@ assert.equal(cancelledManager.peer, null, 'room close clears the peer while reco
 console.log('Reconnect cancellation and session-generation tests passed.');
 
 
+
+
+// Game loop must keep scheduling frames after a recoverable update/render exception.
+const originalRaf = globalThis.requestAnimationFrame;
+const originalCancelRaf = globalThis.cancelAnimationFrame;
+let rafId = 0; const rafQueue = new Map();
+globalThis.requestAnimationFrame = callback => { const id = ++rafId; rafQueue.set(id, callback); return id; };
+globalThis.cancelAnimationFrame = id => rafQueue.delete(id);
+let updateAttempts = 0, renderAttempts = 0, loopErrors = 0;
+const resilientLoop = new GameLoop(() => { updateAttempts++; if (updateAttempts === 1) throw new Error('simulated update failure'); }, () => { renderAttempts++; }, () => { loopErrors++; });
+resilientLoop.start();
+let frameEntry = [...rafQueue.entries()][0]; rafQueue.delete(frameEntry[0]); frameEntry[1](performance.now() + 20);
+assert.equal(resilientLoop.running, true, 'game loop remains active after an update exception');
+assert.equal(rafQueue.size, 1, 'next animation frame is scheduled after an update exception');
+frameEntry = [...rafQueue.entries()][0]; rafQueue.delete(frameEntry[0]); frameEntry[1](performance.now() + 40);
+assert.ok(resilientLoop.getDiagnostics().simulationTicks > 0, 'simulation resumes on a later frame');
+assert.ok(renderAttempts >= 2, 'render is still attempted when simulation update fails');
+assert.equal(loopErrors, 1, 'runtime error callback is de-duplicated by phase and message');
+resilientLoop.stop();
+if (originalRaf) globalThis.requestAnimationFrame = originalRaf; else delete globalThis.requestAnimationFrame;
+if (originalCancelRaf) globalThis.cancelAnimationFrame = originalCancelRaf; else delete globalThis.cancelAnimationFrame;
+console.log('Game loop recovery tests passed.');
+
+// RoomManager must forward create/join timeout configuration to the transport manager.
+const roomOptionsSeen = [];
+const fakeRoomPeer = { create: async options => { roomOptionsSeen.push(['create', options]); return 'peer-id'; }, join: async (id, options) => { roomOptionsSeen.push(['join', id, options]); return true; }, close() {}, send() {} };
+const roomManager = new RoomManager(fakeRoomPeer);
+assert.equal(await roomManager.create({ timeoutMs: 4321 }), 'peer-id');
+assert.equal(await roomManager.join('host-id', { timeoutMs: 5432 }), true);
+assert.deepEqual(roomOptionsSeen, [['create', { timeoutMs: 4321 }], ['join', 'host-id', { timeoutMs: 5432 }]], 'room timeout settings are forwarded');
+console.log('Room timeout propagation tests passed.');
+
+
+// Peer room creation must resolve on open and reject/clean up when signaling never opens.
+class FakePeerEmitter {
+  constructor() { this.events = new Map(); this.destroyed = false; }
+  on(type, fn) { if (!this.events.has(type)) this.events.set(type, []); this.events.get(type).push(fn); }
+  emit(type, value) { for (const fn of this.events.get(type) || []) fn(value); }
+  destroy() { this.destroyed = true; }
+}
+const createPeerManager = new PeerManager();
+createPeerManager.loadPeerConstructor = async () => FakePeerEmitter;
+const createPromise = createPeerManager.create({ timeoutMs: 500 });
+await new Promise(resolve => setImmediate(resolve));
+createPeerManager.peer.emit('open', 'efutsaal-host-id');
+assert.equal(await createPromise, 'efutsaal-host-id', 'create room resolves with Peer ID after signaling open');
+assert.equal(createPeerManager.role, 'host');
+const timeoutPeerManager = new PeerManager();
+timeoutPeerManager.loadPeerConstructor = async () => FakePeerEmitter;
+await assert.rejects(timeoutPeerManager.create({ timeoutMs: 30 }), /Timeout membuat room/, 'create room rejects when signaling never opens');
+assert.equal(timeoutPeerManager.peer, null, 'failed room creation cleans up the Peer instance');
+console.log('Peer create signaling timeout and cleanup tests passed.');
+
+// Off-ball AI should hold its formation instead of constantly chasing a distant ball.
+const shapeTeam = makeTeam('SHAPE', 1).map(p => ({ ...p, human: false }));
+const shapeOpponents = makeTeam('SHAPEOP', -1).map(p => ({ ...p, human: true }));
+const shapeBall = { x: 0, z: 0, vx: 0, vz: 0, spin: 0 };
+const heldPlayer = shapeTeam[2];
+const heldStart = { x: heldPlayer.x, z: heldPlayer.z };
+for (let i = 0; i < 180; i++) updateAI(shapeTeam, shapeOpponents, shapeBall, 1 / 60, 'Normal', 1, {});
+assert.ok(Math.hypot(heldPlayer.x - heldStart.x, heldPlayer.z - heldStart.z) < .65,
+  'off-ball teammate holds its formation slot when the ball is far away');
+
+// Supporting AI makes a small nearby adjustment, not a full-team swarm around the human carrier.
+const supportTeam = makeTeam('SUPPORT', 1, true);
+const supportOpponents = makeTeam('SUPPORTOP', -1).map(p => ({ ...p, human: true }));
+const humanCarrier = supportTeam.find(p => p.human);
+const supportPlayer = supportTeam[2];
+const supportStart = { x: supportPlayer.x, z: supportPlayer.z };
+const supportBall = { x: humanCarrier.x, z: humanCarrier.z, vx: 0, vz: 0, spin: 0 };
+for (let i = 0; i < 120; i++) updateAI(supportTeam, supportOpponents, supportBall, 1 / 60, 'Normal', 1, { carrier: humanCarrier });
+assert.ok(Math.hypot(supportPlayer.x - supportStart.x, supportPlayer.z - supportStart.z) < 1.35,
+  'off-ball support movement remains restrained around the human carrier');
+console.log('Off-ball AI positioning tests passed.');
