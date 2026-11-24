@@ -1,3 +1,9 @@
 @media(max-width:720px){#screen-menu{grid-template-columns:1fr;min-height:calc(100vh - 125px)}.menu-side{display:none}.setup-grid{grid-template-columns:1fr}.lineup-preview{display:none}.tutorial-grid{grid-template-columns:1fr}.screen{padding:28px 18px}.topbar{height:60px}.game-screen{min-height:calc(100dvh - 112px)!important}#game-root{height:calc(100dvh - 112px);min-height:430px}.touch-controls{display:flex}.hud-bottom{bottom:178px;font-size:8px}.hud-top{top:8px;padding:7px 12px;min-width:90vw}.score-team{font-size:10px}.score-team b{font-size:26px}.score-center b{font-size:20px}footer{height:52px}.game-screen.active~footer{display:none}}
 @media(orientation:portrait) and (max-width:720px){.touch-controls{bottom:35px}.joystick{width:105px;height:105px}.action-buttons{grid-template-columns:repeat(3,54px);gap:5px}.action-buttons button{height:45px}.hud-bottom{bottom:190px}}
 @media(min-width:721px){.touch-controls{display:none!important}}
+
+/* iPad and other touch-first tablets may report a desktop-width viewport. */
+body.touch-device .touch-controls{display:flex!important}
+body.touch-device #game-root{min-height:420px;height:calc(100dvh - 112px)}
+body.touch-device .action-buttons button,body.touch-device .joystick{touch-action:none;-webkit-user-select:none;user-select:none}
+@media(pointer:coarse){.touch-controls{display:flex!important}}
